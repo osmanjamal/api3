@@ -1,6 +1,6 @@
 const { Spot } = require('@binance/connector');
 const { Futures } = require('@binance/futures-connector');
-const config = require('../../config/config');
+const config = require('../../config/database');
 
 class BinanceService {
     constructor() {
