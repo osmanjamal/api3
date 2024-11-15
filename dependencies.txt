@@ -1,0 +1,51 @@
+Frontend Dependencies:
+------------------
+1. Core React:
+   - react: ^18.2.0 (React core library)
+   - react-dom: ^18.2.0 (React DOM rendering)
+   - react-router-dom: ^6.16.0 (Routing)
+
+2. UI Components & Styling:
+   - @heroicons/react: ^2.0.18 (Icons)
+   - lucide-react: ^0.284.0 (Icons)
+   - @tailwindcss/forms: ^0.5.6 (Form styling)
+   - tailwindcss: ^3.3.3 (CSS framework)
+   - autoprefixer: ^10.4.16 (PostCSS plugin)
+   - postcss: ^8.4.31 (CSS transformer)
+
+3. Charts & Visualization:
+   - recharts: ^2.8.0 (Chart library)
+
+4. Binance Integration:
+   - @binance/connector: ^3.0.0 (Binance Spot API)
+   - @binance/futures-connector: ^3.0.0 (Binance Futures API)
+
+5. Development & Testing:
+   - @testing-library/jest-dom: ^5.17.0
+   - @testing-library/react: ^13.4.0
+   - @testing-library/user-event: ^13.5.0
+
+Required Development Tools:
+-------------------------
+1. Node.js: v16.x or higher
+2. npm or yarn package manager
+3. Git for version control
+
+System Requirements:
+------------------
+1. Modern web browser (Chrome, Firefox, Safari, Edge)
+2. Minimum 4GB RAM
+3. Stable internet connection
+4. Operating System: Windows 10+, macOS 10.15+, or Linux
+
+Additional Tools (Optional):
+-------------------------
+1. VS Code Extensions:
+   - ESLint
+   - Prettier
+   - Tailwind CSS IntelliSense
+   - ES7+ React/Redux/React-Native snippets
+
+2. Development Tools:
+   - React Developer Tools browser extension
+   - Redux DevTools browser extension (if Redux is added later)
