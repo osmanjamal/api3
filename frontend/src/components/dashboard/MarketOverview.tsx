@@ -1,82 +1,88 @@
 import React, { useEffect, useState } from 'react';
-import { Card } from '@/components/ui/card';
-import cacheService from '../../services/cacheService';
-import binanceService from '../../services/binance';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { binanceService } from '@/services/api';
+import { formatCurrency, formatPercentage } from '@/utils/helpers';
+import type { MarketData } from '@/types';
 
-const MarketOverview = ({ symbols }) => {
-    const [marketData, setMarketData] = useState(new Map());
+interface MarketOverviewProps {
+  symbols: string[];
+}
 
-    useEffect(() => {
-        // Load initial data from cache
-        symbols.forEach(symbol => {
-            const cachedData = cacheService.getMarketData(symbol);
-            if (cachedData) {
-                setMarketData(prev => new Map(prev).set(symbol, cachedData));
-            }
-        });
+const MarketOverview: React.FC<MarketOverviewProps> = ({ symbols }) => {
+  const [marketData, setMarketData] = useState<Map<string, MarketData>>(new Map());
 
-        // Subscribe to real-time updates
-        const unsubscribe = binanceService.addEventListener('price', (data) => {
-            const { symbol, price, volume, change } = data;
-            if (symbols.includes(symbol)) {
-                const updatedData = { price, volume, change, timestamp: Date.now() };
-                
-                // Update cache
-                cacheService.cacheMarketData(symbol, updatedData);
-                
-                // Update state
-                setMarketData(prev => new Map(prev).set(symbol, updatedData));
-            }
-        });
+  useEffect(() => {
+    // Load initial data
+    symbols.forEach(symbol => {
+        const cachedData = binanceService.getMarketData(symbol);
+if (cachedData) {
+  setMarketData(prev => new Map(prev).set(symbol, cachedData));
+}
+});
 
-        return () => unsubscribe();
-    }, [symbols]);
+// Subscribe to price updates
+const unsubscribes = symbols.map(symbol => 
+binanceService.onMarketUpdate(data => {
+  if (symbols.includes(data.symbol)) {
+    setMarketData(prev => new Map(prev).set(data.symbol, {
+      ...data,
+      timestamp: Date.now()
+    }));
+  }
+})
+);
 
-    const getPriceChangeClass = (change) => {
-        if (!change) return 'text-gray-600';
-        return change >= 0 ? 'text-green-600' : 'text-red-600';
-    };
+return () => {
+unsubscribes.forEach(unsubscribe => unsubscribe());
+};
+}, [symbols]);
 
-    return (
-        <Card>
-            <div className="p-6">
-                <h2 className="text-lg font-semibold mb-4">Market Overview</h2>
-                <div className="space-y-4">
-                    {symbols.map(symbol => {
-                        const data = marketData.get(symbol);
-                        
-                        return (
-                            <div key={symbol} className="flex justify-between items-center">
-                                <div>
-                                    <h3 className="font-medium">{symbol}</h3>
-                                    {data && (
-                                        <p className="text-sm text-gray-500">
-                                            Vol: {Number(data.volume).toLocaleString()}
-                                        </p>
-                                    )}
-                                </div>
-                                {data ? (
-                                    <div className="text-right">
-                                        <p className="font-medium">
-                                            ${Number(data.price).toFixed(2)}
-                                        </p>
-                                        <p className={`text-sm ${getPriceChangeClass(data.change)}`}>
-                                            {data.change >= 0 ? '+' : ''}
-                                            {Number(data.change).toFixed(2)}%
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="animate-pulse">
-                                        <div className="h-4 w-20 bg-gray-200 rounded"></div>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
+const getPriceChangeClass = (change: number): string => {
+if (!change) return 'text-gray-600';
+return change >= 0 ? 'text-green-600' : 'text-red-600';
+};
+
+return (
+<Card>
+<CardHeader>
+  <CardTitle>Market Overview</CardTitle>
+</CardHeader>
+<CardContent>
+  <div className="space-y-4">
+    {symbols.map(symbol => {
+      const data = marketData.get(symbol);
+      
+      return (
+        <div key={symbol} className="flex justify-between items-center">
+          <div>
+            <h3 className="font-medium">{symbol}</h3>
+            {data && (
+              <p className="text-sm text-gray-500">
+                Vol: {formatCurrency(data.volume, { decimals: 0 })}
+              </p>
+            )}
+          </div>
+          {data ? (
+            <div className="text-right">
+              <p className="font-medium">
+                {formatCurrency(data.price)}
+              </p>
+              <p className={`text-sm ${getPriceChangeClass(data.change)}`}>
+                {formatPercentage(data.change)}
+              </p>
             </div>
-        </Card>
-    );
+          ) : (
+            <div className="animate-pulse">
+              <div className="h-4 w-20 bg-gray-200 rounded"></div>
+            </div>
+          )}
+        </div>
+      );
+    })}
+  </div>
+</CardContent>
+</Card>
+);
 };
 
 export default MarketOverview;

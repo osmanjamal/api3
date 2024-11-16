@@ -1,97 +1,89 @@
-import React, { useEffect, useState } from 'react';
-import { Alert } from '../ui/Alert';
-import { binanceService } from '../../services/api/binance';
-import { errorService } from '../../services/core/error';
-import { Wifi, WifiOff, AlertTriangle, RefreshCw } from 'lucide-react';
+// src/services/api/websocket.ts
+import type { WebSocketMessage } from '@/types';
+import EventEmitter from 'events';
 
-interface ConnectionState {
-    isConnected: boolean;
-    isConnecting: boolean;
-    error: string | null;
-    reconnectAttempt: number;
+export class BaseWebSocketService extends EventEmitter {
+ protected ws: WebSocket | null = null;
+ protected url: string = '';
+ protected isConnected: boolean = false;
+ protected shouldReconnect: boolean = true;
+ protected reconnectAttempts: number = 0;
+ protected maxReconnectAttempts: number = 5;
+ protected reconnectDelay: number = 1000;
+
+ constructor() {
+   super();
+ }
+
+ public async connect(url: string): Promise<void> {
+   this.url = url;
+   this.shouldReconnect = true;
+   await this.createConnection();
+ }
+
+ protected async createConnection(): Promise<void> {
+   try {
+     return new Promise((resolve, reject) => {
+       this.ws = new WebSocket(this.url);
+       
+       this.ws.onopen = () => {
+         this.isConnected = true;
+         this.reconnectAttempts = 0;
+         this.emit('connected');
+         resolve();
+       };
+
+       this.ws.onclose = this.handleClose.bind(this);
+       this.ws.onerror = (error: Event) => {
+         this.emit('error', error);
+         reject(error);
+       };
+       this.ws.onmessage = this.handleMessage.bind(this);
+     });
+   } catch (error) {
+     this.emit('error', error);
+     throw error;
+   }
+ }
+
+ protected handleClose(): void {
+   this.isConnected = false;
+   this.emit('disconnected');
+   
+   if (this.shouldReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
+     this.reconnectAttempts++;
+     setTimeout(() => {
+       this.createConnection();
+     }, this.reconnectDelay * this.reconnectAttempts);
+   }
+ }
+
+ protected handleMessage(event: MessageEvent): void {
+   try {
+     const message: WebSocketMessage = JSON.parse(event.data);
+     this.emit(message.type, message.data);
+   } catch (error) {
+     this.emit('error', error);
+   }
+ }
+
+ public send(data: any): void {
+   if (!this.ws || !this.isConnected) {
+     throw new Error('WebSocket is not connected');
+   }
+   this.ws.send(JSON.stringify(data));
+ }
+
+ public disconnect(): void {
+   this.shouldReconnect = false;
+   if (this.ws) {
+     this.ws.close();
+     this.ws = null;
+   }
+   this.isConnected = false;
+ }
+
+ public getStatus(): boolean {
+   return this.isConnected;
+ }
 }
-
-const ConnectionStatus: React.FC = () => {
-    const [state, setState] = useState<ConnectionState>({
-        isConnected: binanceService.isConnected(),
-        isConnecting: false,
-        error: null,
-        reconnectAttempt: 0
-    });
-
-    useEffect(() => {
-        const errorUnsubscribe = errorService.subscribe(error => {
-            if (error.type === 'CONNECTION' || error.type === 'WEBSOCKET') {
-                setState(prev => ({
-                    ...prev,
-                    error: error.message,
-                    isConnected: false
-                }));
-            }
-        });
-
-        return () => {
-            errorUnsubscribe();
-        };
-    }, []);
-
-    const getStatusIcon = () => {
-        if (state.isConnecting) {
-            return <RefreshCw className="h-5 w-5 animate-spin text-yellow-500" />;
-        }
-        if (state.isConnected) {
-            return <Wifi className="h-5 w-5 text-green-500" />;
-        }
-        if (state.error) {
-            return <AlertTriangle className="h-5 w-5 text-red-500" />;
-        }
-        return <WifiOff className="h-5 w-5 text-gray-500" />;
-    };
-
-    const getStatusMessage = () => {
-        if (state.isConnecting) {
-            return `Connecting${state.reconnectAttempt > 0 ? ` (Attempt ${state.reconnectAttempt})` : ''}...`;
-        }
-        if (state.isConnected) {
-            return 'Connected to Binance';
-        }
-        if (state.error) {
-            return state.error;
-        }
-        return 'Disconnected from Binance';
-    };
-
-    const getAlertVariant = () => {
-        if (state.isConnected) return 'success';
-        if (state.isConnecting) return 'warning';
-        if (state.error) return 'error';
-        return 'info';
-    };
-
-    if (state.isConnected && !state.error) {
-        return (
-            <div className="flex items-center gap-2 text-green-600 px-4 py-2">
-                <Wifi className="h-4 w-4" />
-                <span className="text-sm font-medium">Connected</span>
-            </div>
-        );
-    }
-
-    return (
-        <Alert 
-            type={getAlertVariant()}
-            className="m-4"
-        >
-            <div className="flex items-center gap-3">
-                {getStatusIcon()}
-                <div className="flex-1">
-                    <p className="text-sm font-medium">
-                        {getStatusMessage()}
-                    </p>
-                </div>
-            </div>
-        </Alert>
-    );
-};
-
-export default ConnectionStatus;

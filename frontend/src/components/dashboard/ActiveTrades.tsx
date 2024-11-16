@@ -1,7 +1,8 @@
 import React from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
-import Card from '../common/Card';
-import Button from '../common/Button';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/Button';
+
 
 const ActiveTrades = ({ trades = [], onCloseTrade }) => {
     const getStatusColor = (pnl) => {

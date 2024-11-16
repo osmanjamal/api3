@@ -1,23 +1,24 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Header from './components/layout/Header';
-import Sidebar from './components/layout/Sidebar';
-import Dashboard from './pages/Dashboard';
-import BotCreation from './pages/BotCreation';
-import Settings from './pages/Settings';
-import BinanceConnect from './pages/BinanceConnect';
-import { binanceService } from './services/api/binance';
+import { Navigate, Routes, Route, BrowserRouter as Router } from 'react-router-dom';
+import Header from '@/components/layout/Header';
+import Sidebar from '@/components/layout/Sidebar';
+import Dashboard from '@/pages/Dashboard';
+import BotCreation from '@/pages/BotCreation';
+import Settings from '@/pages/Settings';
+import BinanceConnect from '@/pages/BinanceConnect';
+import { binanceService } from '@/services/api';
+import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 const App: React.FC = () => {
-  const isConnected = binanceService.isConnected();
+  const { isConnected } = useConnectionStatus();
 
   const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     if (!isConnected) {
-      return <Navigate to="/binance-connect" />;
+      return <Navigate to="/binance-connect" replace />;
     }
     return <>{children}</>;
   };
@@ -72,15 +73,9 @@ const App: React.FC = () => {
                 element={<BinanceConnect />} 
               />
 
-              {/* Catch all route for 404 */}
               <Route 
                 path="*" 
-                element={
-                  <Navigate 
-                    to="/" 
-                    replace 
-                  />
-                } 
+                element={<Navigate to="/" replace />} 
               />
             </Routes>
           </main>

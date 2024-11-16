@@ -1,136 +1,89 @@
-import { ErrorService } from './error';
-import type { WebSocketConfig } from '../api/types';
+// src/services/api/websocket.ts
+import type { WebSocketMessage } from '@/types';
+import EventEmitter from 'events';
 
-export class WebSocketService {
-    private ws: WebSocket | null = null;
-    private config: WebSocketConfig;
-    private error: ErrorService;
-    private isConnected: boolean = false;
-    private reconnectAttempt: number = 0;
-    private listeners: Map<string, Set<Function>> = new Map();
-    private pingInterval: NodeJS.Timeout | null = null;
+export class BaseWebSocketService extends EventEmitter {
+ protected ws: WebSocket | null = null;
+ protected url: string = '';
+ protected isConnected: boolean = false;
+ protected shouldReconnect: boolean = true;
+ protected reconnectAttempts: number = 0;
+ protected maxReconnectAttempts: number = 5;
+ protected reconnectDelay: number = 1000;
 
-    constructor(config: WebSocketConfig) {
-        this.config = config;
-        this.error = new ErrorService();
-    }
+ constructor() {
+   super();
+ }
 
-    public async connect(url: string): Promise<void> {
-        return new Promise((resolve, reject) => {
-            try {
-                this.ws = new WebSocket(url);
+ public async connect(url: string): Promise<void> {
+   this.url = url;
+   this.shouldReconnect = true;
+   await this.createConnection();
+ }
 
-                this.ws.onopen = () => {
-                    this.isConnected = true;
-                    this.reconnectAttempt = 0;
-                    this.setupPing();
-                    resolve();
-                };
+ protected async createConnection(): Promise<void> {
+   try {
+     return new Promise((resolve, reject) => {
+       this.ws = new WebSocket(this.url);
+       
+       this.ws.onopen = () => {
+         this.isConnected = true;
+         this.reconnectAttempts = 0;
+         this.emit('connected');
+         resolve();
+       };
 
-                this.ws.onclose = this.handleClose.bind(this);
-                this.ws.onerror = this.handleError.bind(this);
-                this.ws.onmessage = this.handleMessage.bind(this);
+       this.ws.onclose = this.handleClose.bind(this);
+       this.ws.onerror = (error: Event) => {
+         this.emit('error', error);
+         reject(error);
+       };
+       this.ws.onmessage = this.handleMessage.bind(this);
+     });
+   } catch (error) {
+     this.emit('error', error);
+     throw error;
+   }
+ }
 
-            } catch (error) {
-                reject(error);
-            }
-        });
-    }
+ protected handleClose(): void {
+   this.isConnected = false;
+   this.emit('disconnected');
+   
+   if (this.shouldReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
+     this.reconnectAttempts++;
+     setTimeout(() => {
+       this.createConnection();
+     }, this.reconnectDelay * this.reconnectAttempts);
+   }
+ }
 
-    private setupPing(): void {
-        if (this.pingInterval) {
-            clearInterval(this.pingInterval);
-        }
+ protected handleMessage(event: MessageEvent): void {
+   try {
+     const message: WebSocketMessage = JSON.parse(event.data);
+     this.emit(message.type, message.data);
+   } catch (error) {
+     this.emit('error', error);
+   }
+ }
 
-        this.pingInterval = setInterval(() => {
-            if (this.isConnected) {
-                this.send({ type: 'ping' });
-            }
-        }, this.config.pingInterval);
-    }
+ public send(data: any): void {
+   if (!this.ws || !this.isConnected) {
+     throw new Error('WebSocket is not connected');
+   }
+   this.ws.send(JSON.stringify(data));
+ }
 
-    public disconnect(): void {
-        if (this.ws) {
-            this.isConnected = false;
-            this.ws.close();
-            this.ws = null;
-        }
+ public disconnect(): void {
+   this.shouldReconnect = false;
+   if (this.ws) {
+     this.ws.close();
+     this.ws = null;
+   }
+   this.isConnected = false;
+ }
 
-        if (this.pingInterval) {
-            clearInterval(this.pingInterval);
-            this.pingInterval = null;
-        }
-    }
-
-    public send(data: any): void {
-        if (!this.ws || !this.isConnected) {
-            throw new Error('WebSocket is not connected');
-        }
-
-        try {
-            this.ws.send(JSON.stringify(data));
-        } catch (error) {
-            this.error.handleError(error, 'WEBSOCKET_SEND');
-        }
-    }
-
-    private handleMessage(event: MessageEvent): void {
-        try {
-            const message = JSON.parse(event.data);
-            const listeners = this.listeners.get(message.type);
-            
-            if (listeners) {
-                listeners.forEach(listener => listener(message.data));
-            }
-        } catch (error) {
-            this.error.handleError(error, 'WEBSOCKET_MESSAGE');
-        }
-    }
-
-    private handleError(event: Event): void {
-        this.error.handleError(event, 'WEBSOCKET_ERROR');
-    }
-
-    private handleClose(event: CloseEvent): void {
-        this.isConnected = false;
-        
-        if (this.shouldReconnect()) {
-            this.attemptReconnect();
-        }
-    }
-
-    private shouldReconnect(): boolean {
-        return this.reconnectAttempt < this.config.reconnectAttempts;
-    }
-
-    private attemptReconnect(): void {
-        this.reconnectAttempt++;
-        const delay = this.config.reconnectDelay * Math.pow(2, this.reconnectAttempt - 1);
-
-        setTimeout(() => {
-            if (this.ws?.url) {
-                this.connect(this.ws.url)
-                    .catch(error => this.error.handleError(error, 'WEBSOCKET_RECONNECT'));
-            }
-        }, delay);
-    }
-
-    public subscribe(type: string, callback: Function): () => void {
-        if (!this.listeners.has(type)) {
-            this.listeners.set(type, new Set());
-        }
-
-        this.listeners.get(type)!.add(callback);
-
-        return () => {
-            const listeners = this.listeners.get(type);
-            if (listeners) {
-                listeners.delete(callback);
-            }
-        };
-    }
-
-    public getStatus(): boolean {
-        return this.isConnected;
-    }
+ public getStatus(): boolean {
+   return this.isConnected;
+ }
 }

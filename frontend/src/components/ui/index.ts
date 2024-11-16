@@ -1,6 +1,10 @@
-export { Alert } from './Alert';
-export { Button } from './Button';
-export { Card } from './Card';
-export { Input } from './Input';
-export { Select } from './Select';
-export { Spinner } from './Spinner';
+// src/components/ui/index.ts
+export * from './alert';
+export * from './button';
+export * from './card';
+export * from './input';
+export * from './select';
+export * from './switch';
+export * from './progress';
+export * from './toast';
+export * from './dropdown-menu';

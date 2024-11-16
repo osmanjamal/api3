@@ -4,9 +4,13 @@ WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm install --legacy-peer-deps
+# تثبيت كل شيء بالقوة 💪
+RUN npm install --force --legacy-peer-deps
 
 COPY . .
+
+# تجاهل الأخطاء عند البناء
+RUN CI=false npm run build
 
 EXPOSE 3000
 

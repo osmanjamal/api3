@@ -1,226 +1,183 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Copy, AlertCircle } from 'lucide-react';
-import Button from '../common/Button';
+import { TRADING_PAIRS, LEVERAGE_OPTIONS } from '@/constants';
+import type { BotConfig } from '@/types';
+import { generateUUID } from '@/utils/helpers';
 
-const BotCreationForm = () => {
-    const [currentStep, setCurrentStep] = useState(1);
-    const [botConfig, setBotConfig] = useState({
-        pair: 'BTCUSDT',
-        leverage: 10,
-        maxMargin: '1000',
-        maxInvestment: 30,
-        botName: '',
-        uuid: '',
-        secret: '',
-        webhookUrl: ''
-    });
+interface BotCreationFormProps {
+  onSuccess?: (config: BotConfig) => void;
+}
 
-    useEffect(() => {
-        const uuid = generateUUID();
-        const secret = generateSecret();
-        setBotConfig(prev => ({
-            ...prev,
-            uuid,
-            secret,
-            webhookUrl: `${window.location.origin}/webhook/${uuid}`
-        }));
-    }, []);
+const BotCreationForm: React.FC<BotCreationFormProps> = ({ onSuccess }) => {
+  const [currentStep, setCurrentStep] = useState(1);
+  const [botConfig, setBotConfig] = useState<BotConfig>({
+    uuid: generateUUID(),
+    name: '',
+    pair: 'BTCUSDT',
+    leverage: 10,
+    maxMargin: '1000',
+    maxInvestment: 30,
+    status: 'STOPPED',
+    webhookUrl: `${window.location.origin}/webhook/`,
+    secret: generateUUID()
+  });
 
-    const generateUUID = () => {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            const r = Math.random() * 16 | 0;
-            const v = c === 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-        });
-    };
+  useEffect(() => {
+    setBotConfig(prev => ({
+      ...prev,
+      webhookUrl: `${window.location.origin}/webhook/${prev.uuid}`
+    }));
+  }, []);
 
-    const generateSecret = () => {
-        return Array.from(crypto.getRandomValues(new Uint8Array(32)))
-            .map(b => b.toString(16).padStart(2, '0'))
-            .join('');
-    };
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+  };
 
-    const copyToClipboard = (text) => {
-        navigator.clipboard.writeText(text);
-    };
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSuccess?.(botConfig);
+  };
 
-    const renderStepOne = () => (
-        <div className="space-y-6">
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Your Webhook URL
-                </label>
-                <div className="flex gap-2">
-                    <input
-                        type="text"
-                        value={botConfig.webhookUrl}
-                        readOnly
-                        className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    />
-                    <Button 
-                        variant="secondary"
-                        onClick={() => copyToClipboard(botConfig.webhookUrl)}
-                    >
-                        <Copy className="h-4 w-4" />
-                    </Button>
-                </div>
-            </div>
-
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Secret Key (Keep this safe!)
-                </label>
-                <div className="flex gap-2">
-                    <input
-                        type="text"
-                        value={botConfig.secret}
-                        readOnly
-                        className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    />
-                    <Button 
-                        variant="secondary"
-                        onClick={() => copyToClipboard(botConfig.secret)}
-                    >
-                        <Copy className="h-4 w-4" />
-                    </Button>
-                </div>
-            </div>
-
-            <Alert type="info">
-                <AlertCircle className="h-4 w-4" />
-                <span>Save these credentials. You'll need them to configure your trading signals.</span>
-            </Alert>
+  const renderStepOne = () => (
+    <div className="space-y-6">
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Webhook URL</label>
+        <div className="flex gap-2">
+          <Input
+            value={botConfig.webhookUrl}
+            readOnly
+            className="flex-1"
+          />
+          <Button 
+            variant="outline"
+            onClick={() => copyToClipboard(botConfig.webhookUrl)}
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
         </div>
-    );
+      </div>
 
-    const renderStepTwo = () => (
-        <div className="space-y-6">
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Bot Name
-                </label>
-                <input
-                    type="text"
-                    value={botConfig.botName}
-                    onChange={(e) => setBotConfig({ ...botConfig, botName: e.target.value })}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    placeholder="My Trading Bot"
-                />
-            </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Secret Key</label>
+        <div className="flex gap-2">
+          <Input
+            value={botConfig.secret}
+            readOnly
+            className="flex-1"
+          />
+          <Button 
+            variant="outline"
+            onClick={() => copyToClipboard(botConfig.secret)}
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
 
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Trading Pair
-                </label>
-                <select
-                    value={botConfig.pair}
-                    onChange={(e) => setBotConfig({ ...botConfig, pair: e.target.value })}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+      <Alert variant="info">
+        <AlertCircle className="h-4 w-4" />
+        <p>Save these credentials. You'll need them to configure your trading signals.</p>
+      </Alert>
+    </div>
+  );
+
+  const renderStepTwo = () => (
+    <div className="space-y-6">
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Bot Name</label>
+        <Input
+          value={botConfig.name}
+          onChange={(e) => setBotConfig({ ...botConfig, name: e.target.value })}
+          placeholder="My Trading Bot"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Trading Pair</label>
+        <Select
+          value={botConfig.pair}
+          onValueChange={(value) => setBotConfig({ ...botConfig, pair: value })}
+        >
+          {Object.entries(TRADING_PAIRS).map(([value, label]) => (
+            <Select.Option key={value} value={value}>
+              {label}
+            </Select.Option>
+          ))}
+        </Select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Leverage</label>
+        <Select
+          value={botConfig.leverage.toString()}
+          onValueChange={(value) => setBotConfig({ ...botConfig, leverage: parseInt(value, 10) })}
+        >
+          {LEVERAGE_OPTIONS.map((value) => (
+            <Select.Option key={value} value={value.toString()}>
+              {value}x
+            </Select.Option>
+          ))}
+        </Select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Max Investment (%)</label>
+        <Input
+          type="number"
+          value={botConfig.maxInvestment}
+          onChange={(e) => setBotConfig({ ...botConfig, maxInvestment: Number(e.target.value) })}
+          min={1}
+          max={100}
+        />
+      </div>
+    </div>
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Create Trading Bot</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit}>
+          {currentStep === 1 && renderStepOne()}
+          {currentStep === 2 && renderStepTwo()}
+
+          <div className="mt-6 flex justify-between">
+            {currentStep > 1 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCurrentStep(currentStep - 1)}
+              >
+                Previous
+              </Button>
+            )}
+            
+            <div className="ml-auto">
+              {currentStep < 2 ? (
+                <Button
+                  type="button"
+                  onClick={() => setCurrentStep(currentStep + 1)}
                 >
-                    <option value="BTCUSDT">BTC/USDT</option>
-                    <option value="ETHUSDT">ETH/USDT</option>
-                    <option value="BNBUSDT">BNB/USDT</option>
-                </select>
+                  Next
+                </Button>
+              ) : (
+                <Button type="submit">
+                  Create Bot
+                </Button>
+              )}
             </div>
-
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Leverage (1-125x)
-                </label>
-                <input
-                    type="number"
-                    value={botConfig.leverage}
-                    onChange={(e) => setBotConfig({ ...botConfig, leverage: e.target.value })}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    min="1"
-                    max="125"
-                />
-            </div>
-
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Max Investment (% of Balance)
-                </label>
-                <input
-                    type="number"
-                    value={botConfig.maxInvestment}
-                    onChange={(e) => setBotConfig({ ...botConfig, maxInvestment: e.target.value })}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    min="1"
-                    max="100"
-                />
-            </div>
-        </div>
-    );
-
-    const renderStepThree = () => (
-        <div className="space-y-6">
-            <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">
-                    Signal Configuration
-                </h3>
-                <pre className="bg-gray-50 rounded-md p-4 overflow-auto">
-                    {JSON.stringify({
-                        secret: botConfig.secret,
-                        timestamp: "{{timenow}}",
-                        trigger_price: "{{strategy.order.price}}",
-                        position_size: "{{strategy.position_size}}",
-                        action: "{{strategy.order.action}}",
-                        bot_uuid: botConfig.uuid
-                    }, null, 2)}
-                </pre>
-            </div>
-
-            <Alert type="info">
-                <AlertCircle className="h-4 w-4" />
-                <span>Use this configuration in your TradingView alerts.</span>
-            </Alert>
-        </div>
-    );
-
-    return (
-        <Card>
-            <div className="p-6">
-                <div className="mb-8 flex justify-between items-center">
-                    <h2 className="text-xl font-semibold">Create Trading Bot</h2>
-                    <div className="text-sm text-gray-500">
-                        Step {currentStep} of 3
-                    </div>
-                </div>
-
-                {currentStep === 1 && renderStepOne()}
-                {currentStep === 2 && renderStepTwo()}
-                {currentStep === 3 && renderStepThree()}
-
-                <div className="mt-8 flex justify-between">
-                    {currentStep > 1 && (
-                        <Button
-                            variant="secondary"
-                            onClick={() => setCurrentStep(currentStep - 1)}
-                        >
-                            Previous
-                        </Button>
-                    )}
-                    
-                    <div className="ml-auto">
-                        {currentStep < 3 ? (
-                            <Button
-                                onClick={() => setCurrentStep(currentStep + 1)}
-                            >
-                                Next
-                            </Button>
-                        ) : (
-                            <Button>
-                                Create Bot
-                            </Button>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </Card>
-    );
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
 };
 
 export default BotCreationForm;
